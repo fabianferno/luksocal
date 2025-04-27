@@ -34,6 +34,71 @@ export async function fetchProfileData(username: string) {
 }
 
 /**
+ * Component to display Cal.com event information
+ */
+function EventData() {
+  const [eventData, setEventData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchEventData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Use your existing endpoint with the provided parameters
+      const url = `/api/event?username=fabianferno&startTime=2025-03-31T18:30:00.000Z&endTime=2025-04-30T18:30:00.000Z`;
+      console.log("Fetching event data from:", url);
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`API returned status ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("Event data:", data);
+      setEventData(data);
+    } catch (err: unknown) {
+      console.error("Error fetching event data:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to fetch event data"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="mt-4 p-4 border rounded-lg shadow">
+      <h2 className="text-xl font-bold mb-4">Cal.com Event Data</h2>
+
+      <button
+        onClick={fetchEventData}
+        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4"
+        disabled={loading}
+      >
+        {loading ? "Loading..." : "Fetch Event Data"}
+      </button>
+
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          Error: {error}
+        </div>
+      )}
+
+      {eventData && (
+        <div className="bg-gray-50 p-4 rounded">
+          <pre className="text-xs overflow-auto max-h-60">
+            {JSON.stringify(eventData, null, 2)}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * Main content component that handles the conditional rendering of Donate and ProfileSearch components.
  * Utilizes the UpProvider context to manage selected addresses and search state.
  *
@@ -122,6 +187,9 @@ function MainContent() {
           <p className="text-gray-600">{profileData.bio}</p>
         </div>
       )}
+
+      {/* Add the event data component */}
+      <EventData />
     </>
   );
 }

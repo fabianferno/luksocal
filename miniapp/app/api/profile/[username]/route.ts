@@ -47,8 +47,66 @@ export async function GET(
         const bioTag = document.querySelector('meta[name="description"]');
         const bio = bioTag ? bioTag.getAttribute("content") || "" : "";
 
+        // Extract and process image from og:image meta tag
         const imageTag = document.querySelector('meta[property="og:image"]');
-        const imageUrl = imageTag ? imageTag.getAttribute("content") || "" : "";
+        let imageUrl = "";
+
+        if (imageTag) {
+          const ogImageUrl = imageTag.getAttribute("content") || "";
+          console.log("Original og:image URL:", ogImageUrl);
+
+          // Look specifically for the avatar URL pattern in meetingImage parameter
+          if (ogImageUrl.includes("meetingImage=")) {
+            try {
+              // Try to extract directly from the og:image URL first
+              const avatarId = extractAvatarId(ogImageUrl);
+              if (avatarId) {
+                imageUrl = `https://cal.com/api/avatar/${avatarId}.png`;
+                console.log("Extracted avatar ID directly:", avatarId);
+              } else {
+                // Extract the meetingImage parameter for further processing
+                const meetingImageMatch =
+                  ogImageUrl.match(/meetingImage=([^&]+)/);
+                if (meetingImageMatch && meetingImageMatch[1]) {
+                  // First level decode
+                  let decoded = decodeURIComponent(meetingImageMatch[1]);
+                  console.log("Decoded meetingImage:", decoded);
+
+                  // If it still contains encoded characters, decode again
+                  if (decoded.includes("%")) {
+                    decoded = decodeURIComponent(decoded);
+                    console.log("Second level decode:", decoded);
+                  }
+
+                  // Try to extract avatar ID from the decoded URL
+                  const avatarIdFromDecoded = extractAvatarId(decoded);
+                  if (avatarIdFromDecoded) {
+                    imageUrl = `https://cal.com/api/avatar/${avatarIdFromDecoded}.png`;
+                    console.log(
+                      "Extracted avatar ID from decoded URL:",
+                      avatarIdFromDecoded
+                    );
+                  } else if (decoded.startsWith("http")) {
+                    // Or just use the decoded URL if it's valid
+                    imageUrl = decoded;
+                    console.log("Using decoded URL:", imageUrl);
+                  }
+                }
+              }
+            } catch (e) {
+              console.error("Error decoding meetingImage from og:image:", e);
+            }
+          } else {
+            // If no meetingImage parameter, use the og:image directly
+            imageUrl = ogImageUrl;
+          }
+        }
+
+        // If we still have no image, use default avatar
+        if (!imageUrl) {
+          imageUrl = `https://cal.com/api/avatar/${username}`;
+          console.log("Using default avatar URL:", imageUrl);
+        }
 
         return NextResponse.json({
           name: profileName,
@@ -124,9 +182,63 @@ export async function GET(
         }
       }
 
-      // If no image was found, try to generate a default avatar URL
+      // If no image was found in the profile object, try to extract from og:image
+      if (!data.image) {
+        const imageTag = document.querySelector('meta[property="og:image"]');
+
+        if (imageTag) {
+          const ogImageUrl = imageTag.getAttribute("content") || "";
+          console.log("Trying to extract from og:image URL:", ogImageUrl);
+
+          // Try to extract directly from the og:image URL first
+          const avatarId = extractAvatarId(ogImageUrl);
+          if (avatarId) {
+            data.image = `https://cal.com/api/avatar/${avatarId}.png`;
+            console.log("Extracted avatar ID directly:", avatarId);
+          } else if (ogImageUrl.includes("meetingImage=")) {
+            try {
+              // Extract the meetingImage parameter for further processing
+              const meetingImageMatch =
+                ogImageUrl.match(/meetingImage=([^&]+)/);
+              if (meetingImageMatch && meetingImageMatch[1]) {
+                // First level decode
+                let decoded = decodeURIComponent(meetingImageMatch[1]);
+                console.log("Decoded meetingImage:", decoded);
+
+                // If it still contains encoded characters, decode again
+                if (decoded.includes("%")) {
+                  decoded = decodeURIComponent(decoded);
+                  console.log("Second level decode:", decoded);
+                }
+
+                // Try to extract avatar ID from the decoded URL
+                const avatarIdFromDecoded = extractAvatarId(decoded);
+                if (avatarIdFromDecoded) {
+                  data.image = `https://cal.com/api/avatar/${avatarIdFromDecoded}.png`;
+                  console.log(
+                    "Extracted avatar ID from decoded URL:",
+                    avatarIdFromDecoded
+                  );
+                } else if (decoded.startsWith("http")) {
+                  // Or just use the decoded URL if it's valid
+                  data.image = decoded;
+                  console.log("Using decoded URL:", data.image);
+                }
+              }
+            } catch (e) {
+              console.error("Error decoding meetingImage from og:image:", e);
+            }
+          } else {
+            // If no meetingImage parameter, use the og:image directly
+            data.image = ogImageUrl;
+          }
+        }
+      }
+
+      // If we still have no image, use default avatar
       if (!data.image) {
         data.image = `https://cal.com/api/avatar/${username}`;
+        console.log("Using default avatar URL:", data.image);
       }
 
       console.log("Final data being returned:", data);
@@ -151,5 +263,37 @@ export async function GET(
       },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Extracts the avatar ID from a Cal.com URL or URL parameter
+ * @param url The URL to extract from
+ * @returns The avatar ID or null if not found
+ */
+function extractAvatarId(url: string): string | null {
+  try {
+    // Try direct avatar pattern first
+    const directMatch = url.match(/avatar\/([a-f0-9-]+)\.png/i);
+    if (directMatch && directMatch[1]) {
+      return directMatch[1];
+    }
+
+    // Try encoded avatar pattern
+    const encodedMatch = url.match(/avatar%2F([a-f0-9-]+)\.png/i);
+    if (encodedMatch && encodedMatch[1]) {
+      return encodedMatch[1];
+    }
+
+    // Try double encoded avatar pattern
+    const doubleEncodedMatch = url.match(/avatar%252F([a-f0-9-]+)\.png/i);
+    if (doubleEncodedMatch && doubleEncodedMatch[1]) {
+      return doubleEncodedMatch[1];
+    }
+
+    return null;
+  } catch (e) {
+    console.error("Error extracting avatar ID:", e);
+    return null;
   }
 }
