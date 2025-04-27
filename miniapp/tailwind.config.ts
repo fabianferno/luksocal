@@ -1,11 +1,11 @@
-import type { Config } from 'tailwindcss';
+import type { Config } from "tailwindcss/types";
 
 export default {
   content: [
-    './pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './components/**/*.{js,ts,jsx,tsx,mdx}',
-    './app/**/*.{js,ts,jsx,tsx,mdx}',
+    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   plugins: [],
-  presets: [require('@lukso/web-components/tailwind.config')],
+  presets: [require("@lukso/web-components/tailwind.config")],
 } satisfies Config;
