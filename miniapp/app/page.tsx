@@ -99,6 +99,80 @@ function EventData() {
 }
 
 /**
+ * Component to book an event through Cal.com
+ */
+function BookEvent() {
+  const [bookingResult, setBookingResult] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const bookEvent = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const bookingData = {
+        name: "xyz",
+        email: "leo@gmail.com",
+        startTime: "2025-04-27T08:45:00.000Z",
+        eventTypeSlug: "15min",
+        user: "leo",
+        timeZone: "Europe/Amsterdam",
+      };
+
+      const response = await fetch("/api/book", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(bookingData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API returned status ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("Booking result:", data);
+      setBookingResult(data);
+    } catch (err: unknown) {
+      console.error("Error booking event:", err);
+      setError(err instanceof Error ? err.message : "Failed to book event");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="mt-4 p-4 border rounded-lg shadow">
+      <h2 className="text-xl font-bold mb-4">Book Cal.com Event</h2>
+
+      <button
+        onClick={bookEvent}
+        className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mb-4"
+        disabled={loading}
+      >
+        {loading ? "Booking..." : "Book Event"}
+      </button>
+
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          Error: {error}
+        </div>
+      )}
+
+      {bookingResult && (
+        <div className="bg-gray-50 p-4 rounded">
+          <pre className="text-xs overflow-auto max-h-60">
+            {JSON.stringify(bookingResult, null, 2)}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * Main content component that handles the conditional rendering of Donate and ProfileSearch components.
  * Utilizes the UpProvider context to manage selected addresses and search state.
  *
@@ -190,6 +264,9 @@ function MainContent() {
 
       {/* Add the event data component */}
       <EventData />
+
+      {/* Add the book event component */}
+      <BookEvent />
     </>
   );
 }
