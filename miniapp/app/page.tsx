@@ -33,34 +33,68 @@ export async function fetchProfileData(username: string) {
   }
 }
 
+// Add a footer component for the app
+function AppFooter() {
+  return (
+    <footer className="w-full py-4 flex justify-center items-center mt-12">
+      <span className="text-xs text-gray-400">Powered by LUKSOCAL – Schedule meetings right from your Universal Profile</span>
+    </footer>
+  );
+}
+
 /**
  * Component to display Cal.com event information
+ * Now uses a form for username and optional date range
  */
-function EventData() {
+function EventData({ setBookForm, bookForm }: { setBookForm: (f: any) => void, bookForm: any }) {
   const [eventData, setEventData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [username, setUsername] = useState("");
+  // Default to current week
+  const getDefaultWeek = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const diffToMonday = (day === 0 ? -6 : 1) - day; // Sunday=0, Monday=1
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diffToMonday);
+    monday.setHours(0, 0, 0, 0);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+    // Format for datetime-local input (YYYY-MM-DDTHH:mm)
+    const toLocalInput = (d: Date) => {
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+    return {
+      start: toLocalInput(monday),
+      end: toLocalInput(sunday),
+    };
+  };
+  const defaultWeek = getDefaultWeek();
+  const [startTime, setStartTime] = useState(defaultWeek.start);
+  const [endTime, setEndTime] = useState(defaultWeek.end);
 
-  const fetchEventData = async () => {
+  const fetchEventData = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username) {
+      setError("Username is required");
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
-
-      // Use your existing endpoint with the provided parameters
-      const url = `/api/event?username=fabianferno&startTime=2025-03-31T18:30:00.000Z&endTime=2025-04-30T18:30:00.000Z`;
-      console.log("Fetching event data from:", url);
-
+      let url = `/api/event?username=${encodeURIComponent(username)}`;
+      if (startTime) url += `&startTime=${encodeURIComponent(startTime)}`;
+      if (endTime) url += `&endTime=${encodeURIComponent(endTime)}`;
       const response = await fetch(url);
-
       if (!response.ok) {
         throw new Error(`API returned status ${response.status}`);
       }
-
       const data = await response.json();
-      console.log("Event data:", data);
       setEventData(data);
     } catch (err: unknown) {
-      console.error("Error fetching event data:", err);
       setError(
         err instanceof Error ? err.message : "Failed to fetch event data"
       );
@@ -69,30 +103,98 @@ function EventData() {
     }
   };
 
+  // Helper to render slots in a calendar-like grid
+  function renderSlots(slotsObj: any) {
+    if (!slotsObj || Object.keys(slotsObj).length === 0) {
+      return <div className="text-gray-500 text-center mt-4">No available slots for this week.</div>;
+    }
+    return (
+      <div className="w-full flex flex-col gap-6 mt-4">
+        {Object.entries(slotsObj).map(([date, slots]: [string, any]) => (
+          <div key={date} className="w-full">
+            <div className="font-semibold text-lg text-black mb-2">{new Date(date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}</div>
+            <div className="flex flex-wrap gap-2">
+              {slots.map((slot: any) => {
+                const time = new Date(slot.time);
+                return (
+                  <button
+                    key={slot.time}
+                    className="px-4 py-2 rounded-lg border border-gray-300 bg-white hover:bg-black hover:text-white transition-colors duration-150 text-sm font-medium shadow-sm"
+                    style={{ minWidth: 90 }}
+                    type="button"
+                    onClick={() => {
+                      setBookForm({
+                        ...bookForm,
+                        startTime: slot.time.slice(0, 16), // for datetime-local input (YYYY-MM-DDTHH:mm)
+                        user: username,
+                      });
+                    }}
+                  >
+                    {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Extract slots from Cal.com API response structure
+  function getSlotsFromEventData(data: any) {
+    if (!data) return null;
+    if (data.result && data.result.data && data.result.data.json && data.result.data.json.slots) {
+      return data.result.data.json.slots;
+    }
+    if (data.slots) return data.slots;
+    return null;
+  }
+
+  const slots = getSlotsFromEventData(eventData);
+
   return (
-    <div className="mt-4 p-4 border rounded-lg shadow">
-      <h2 className="text-xl font-bold mb-4">Cal.com Event Data</h2>
-
-      <button
-        onClick={fetchEventData}
-        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4"
-        disabled={loading}
-      >
-        {loading ? "Loading..." : "Fetch Event Data"}
-      </button>
-
+    <div className="mt-8 p-6 bg-white border border-gray-300 rounded-3xl shadow-xl max-w-2xl mx-auto flex flex-col items-center">
+      <h2 className="text-2xl text-left font-bold mb-4 text-black">Get slots to book</h2>
+      <form onSubmit={fetchEventData} className="flex flex-col gap-2 w-full max-w-md mb-4">
+        <input
+          type="text"
+          placeholder="Username (required)"
+          value={username}
+          onChange={e => setUsername(e.target.value)}
+          className="border rounded px-3 py-2 text-black"
+          required
+        />
+        <input
+          type="datetime-local"
+          placeholder="Start Time (optional)"
+          value={startTime}
+          onChange={e => setStartTime(e.target.value)}
+          className="border rounded px-3 py-2 text-black"
+        />
+        <input
+          type="datetime-local"
+          placeholder="End Time (optional)"
+          value={endTime}
+          onChange={e => setEndTime(e.target.value)}
+          className="border rounded px-3 py-2 text-black"
+        />
+        <button
+          type="submit"
+          className="bg-black hover:bg-gray-800 text-white font-bold py-3 px-8 rounded-full text-lg shadow-md transition-all duration-150 disabled:opacity-60"
+          disabled={loading}
+        >
+          {loading ? "Loading..." : "Fetch Event Data"}
+        </button>
+      </form>
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="bg-gray-100 border border-gray-400 text-black px-4 py-3 rounded-xl mb-4 w-full text-center">
           Error: {error}
         </div>
       )}
-
-      {eventData && (
-        <div className="bg-gray-50 p-4 rounded">
-          <pre className="text-xs overflow-auto max-h-60">
-            {JSON.stringify(eventData, null, 2)}
-          </pre>
-        </div>
+      {slots && renderSlots(slots)}
+      {eventData && !slots && (
+        <div className="text-gray-500 text-center mt-4">No available slots found.</div>
       )}
     </div>
   );
@@ -100,43 +202,39 @@ function EventData() {
 
 /**
  * Component to book an event through Cal.com
+ * Now uses a form for all booking fields
  */
-function BookEvent() {
+function BookEvent({ bookForm, setBookForm }: { bookForm: any, setBookForm: (f: any) => void }) {
   const [bookingResult, setBookingResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const bookEvent = async () => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setBookForm({ ...bookForm, [e.target.name]: e.target.value });
+  };
+
+  const bookEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bookForm.name || !bookForm.email || !bookForm.startTime || !bookForm.eventTypeSlug || !bookForm.user || !bookForm.timeZone) {
+      setError("All fields are required");
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
-
-      const bookingData = {
-        name: "xyz",
-        email: "leo@gmail.com",
-        startTime: "2025-04-27T08:45:00.000Z",
-        eventTypeSlug: "15min",
-        user: "leo",
-        timeZone: "Europe/Amsterdam",
-      };
-
       const response = await fetch("/api/book", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(bookingData),
+        body: JSON.stringify(bookForm),
       });
-
       if (!response.ok) {
         throw new Error(`API returned status ${response.status}`);
       }
-
       const data = await response.json();
-      console.log("Booking result:", data);
       setBookingResult(data);
     } catch (err: unknown) {
-      console.error("Error booking event:", err);
       setError(err instanceof Error ? err.message : "Failed to book event");
     } finally {
       setLoading(false);
@@ -144,26 +242,79 @@ function BookEvent() {
   };
 
   return (
-    <div className="mt-4 p-4 border rounded-lg shadow">
-      <h2 className="text-xl font-bold mb-4">Book Cal.com Event</h2>
-
-      <button
-        onClick={bookEvent}
-        className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mb-4"
-        disabled={loading}
-      >
-        {loading ? "Booking..." : "Book Event"}
-      </button>
-
+    <div className="mt-8 p-6 bg-white border border-gray-300 rounded-3xl shadow-xl max-w-2xl mx-auto flex flex-col items-center">
+      <h2 className="text-2xl font-bold mb-4 text-black">Book a slot</h2>
+      <form onSubmit={bookEvent} className="flex flex-col gap-2 w-full max-w-md mb-4">
+        <input
+          type="text"
+          name="name"
+          placeholder="Your Name"
+          value={bookForm.name}
+          onChange={handleChange}
+          className="border rounded px-3 py-2 text-black"
+          required
+        />
+        <input
+          type="email"
+          name="email"
+          placeholder="Your Email"
+          value={bookForm.email}
+          onChange={handleChange}
+          className="border rounded px-3 py-2 text-black"
+          required
+        />
+        <input
+          type="text"
+          name="user"
+          placeholder="Cal.com Username"
+          value={bookForm.user}
+          onChange={handleChange}
+          className="border rounded px-3 py-2 text-black"
+          required
+        />
+        <input
+          type="text"
+          name="eventTypeSlug"
+          placeholder="Event Type Slug (e.g. 15min)"
+          value={bookForm.eventTypeSlug}
+          onChange={handleChange}
+          className="border rounded px-3 py-2 text-black"
+          required
+        />
+        <input
+          type="datetime-local"
+          name="startTime"
+          placeholder="Start Time"
+          value={bookForm.startTime}
+          onChange={handleChange}
+          className="border rounded px-3 py-2 text-black"
+          required
+        />
+        <input
+          type="text"
+          name="timeZone"
+          placeholder="Time Zone (e.g. Europe/Amsterdam)"
+          value={bookForm.timeZone}
+          onChange={handleChange}
+          className="border rounded px-3 py-2 text-black"
+          required
+        />
+        <button
+          type="submit"
+          className="bg-black hover:bg-gray-800 text-white font-bold py-3 px-8 rounded-full text-lg shadow-md transition-all duration-150 disabled:opacity-60"
+          disabled={loading}
+        >
+          {loading ? "Booking..." : "Book Event"}
+        </button>
+      </form>
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="bg-gray-100 border border-gray-400 text-black px-4 py-3 rounded-xl mb-4 w-full text-center">
           Error: {error}
         </div>
       )}
-
       {bookingResult && (
-        <div className="bg-gray-50 p-4 rounded">
-          <pre className="text-xs overflow-auto max-h-60">
+        <div className="bg-gray-50 p-4 rounded-xl w-full overflow-x-auto">
+          <pre className="text-xs md:text-sm overflow-auto max-h-60 text-black">
             {JSON.stringify(bookingResult, null, 2)}
           </pre>
         </div>
@@ -184,90 +335,81 @@ function MainContent() {
   const [mounted, setMounted] = useState(false);
   const [profileData, setProfileData] = useState<
     | {
-        name: string;
-        username: string;
-        image: string;
-        bio: string;
-      }
+      name: string;
+      username: string;
+      image: string;
+      bio: string;
+    }
     | null
     | undefined
   >(null);
 
+  // BookEvent form state lifted here
+  const [bookForm, setBookForm] = useState({
+    name: "",
+    email: "",
+    startTime: "",
+    eventTypeSlug: "",
+    user: "",
+    timeZone: "",
+  });
+
   useEffect(() => {
-    // Load web component here if needed
     promise?.then(() => {
       setMounted(true);
     });
   }, []);
 
-  // Fetch profile data directly from Cal.com (example of direct browser-side approach)
   useEffect(() => {
     async function fetchDirectProfile() {
       try {
-        // This will only work in a browser extension or when CORS is not an issue
-        // For this app, we'll use our API proxy instead
         const username = "fabianferno";
-
-        // Use our API endpoint instead of direct fetch to avoid CORS
-        console.log(`Fetching profile data for ${username}...`);
         const response = await fetch(`/api/profile/${username}`);
-
         if (!response.ok) {
-          console.error(`API error: ${response.status}`);
-          const errorData = await response.json().catch(() => null);
-          console.error("Error details:", errorData);
           return;
         }
-
         const data = await response.json();
-        console.log("Profile data via API:", data);
-
         if (data) {
           setProfileData(data);
-        } else {
-          console.log("No profile data found for", username);
         }
-      } catch (error) {
-        console.error("Error fetching profile data:", error);
+      } catch {
+        // silent
       }
     }
-
     if (mounted) {
       fetchDirectProfile();
     }
   }, [mounted]);
 
-  const { selectedAddress, setSelectedAddress, isSearching } = useUpProvider();
+  const { isSearching } = useUpProvider();
 
   if (!mounted) {
-    return null; // or a loading placeholder
+    return null;
   }
 
   return (
-    <>
+    <main className="flex flex-col items-center w-full min-h-screen  pb-16 pt-4 md:pt-10">
       <div className={`${isSearching ? "hidden" : "block"}`}></div>
-
-      {/* Display profile data if available */}
+      {/* Profile Card */}
       {profileData && (
-        <div className="p-4 border rounded-lg shadow mt-4">
-          <h2 className="text-xl font-bold mb-2">{profileData.name}</h2>
+        <div className="p-6 bg-white border border-gray-300 rounded-3xl shadow-xl mt-8 max-w-2xl w-full flex flex-col items-center">
+          <h2 className="text-2xl font-bold mb-2 text-black">{profileData.name}</h2>
           {profileData.image && (
             <img
               src={profileData.image}
               alt={profileData.name}
-              className="w-20 h-20 rounded-full mb-2"
+              className="w-auto max-w-full max-h-80 object-contain mb-4 border-2 border-gray-300 rounded-xl shadow-md"
+              style={{ display: 'block' }}
             />
           )}
-          <p className="text-gray-600">{profileData.bio}</p>
+          <p className="text-gray-700 text-center text-lg">{profileData.bio}</p>
         </div>
       )}
-
-      {/* Add the event data component */}
-      <EventData />
-
-      {/* Add the book event component */}
-      <BookEvent />
-    </>
+      <div className="flex flex-row gap-4">
+        <EventData setBookForm={setBookForm} bookForm={bookForm} />
+        <BookEvent setBookForm={setBookForm} bookForm={bookForm} />
+      </div>
+    </main>
   );
 }
 
@@ -281,7 +423,10 @@ function MainContent() {
 export default function Home() {
   return (
     <UpProvider>
-      <MainContent />
+      <div className="min-h-screen flex flex-col items-center">
+        <MainContent />
+        <AppFooter />
+      </div>
     </UpProvider>
   );
 }
