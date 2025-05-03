@@ -51,30 +51,10 @@ function EventData({ setBookForm, bookForm }: { setBookForm: (f: any) => void, b
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [username, setUsername] = useState("");
-  // Default to current week
-  const getDefaultWeek = () => {
-    const now = new Date();
-    const day = now.getDay();
-    const diffToMonday = (day === 0 ? -6 : 1) - day; // Sunday=0, Monday=1
-    const monday = new Date(now);
-    monday.setDate(now.getDate() + diffToMonday);
-    monday.setHours(0, 0, 0, 0);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    sunday.setHours(23, 59, 59, 999);
-    // Format for datetime-local input (YYYY-MM-DDTHH:mm)
-    const toLocalInput = (d: Date) => {
-      const pad = (n: number) => n.toString().padStart(2, '0');
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    };
-    return {
-      start: toLocalInput(monday),
-      end: toLocalInput(sunday),
-    };
-  };
-  const defaultWeek = getDefaultWeek();
-  const [startTime, setStartTime] = useState(defaultWeek.start);
-  const [endTime, setEndTime] = useState(defaultWeek.end);
+
+  // Calendar state
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [timeFormat, setTimeFormat] = useState<'12h' | '24h'>('12h');
 
   const fetchEventData = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,15 +65,25 @@ function EventData({ setBookForm, bookForm }: { setBookForm: (f: any) => void, b
     try {
       setLoading(true);
       setError(null);
+      // Use a very wide date range
+      const startTime = '2020-01-01T00:00';
+      const endTime = '2030-12-31T23:59';
       let url = `/api/event?username=${encodeURIComponent(username)}`;
-      if (startTime) url += `&startTime=${encodeURIComponent(startTime)}`;
-      if (endTime) url += `&endTime=${encodeURIComponent(endTime)}`;
+      url += `&startTime=${encodeURIComponent(startTime)}`;
+      url += `&endTime=${encodeURIComponent(endTime)}`;
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`API returned status ${response.status}`);
       }
       const data = await response.json();
       setEventData(data);
+      // Auto-select first available date if present
+      const slots = getSlotsFromEventData(data);
+      if (slots && Object.keys(slots).length > 0) {
+        setSelectedDate(Object.keys(slots)[0]);
+      } else {
+        setSelectedDate(null);
+      }
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : "Failed to fetch event data"
@@ -102,44 +92,6 @@ function EventData({ setBookForm, bookForm }: { setBookForm: (f: any) => void, b
       setLoading(false);
     }
   };
-
-  // Helper to render slots in a calendar-like grid
-  function renderSlots(slotsObj: any) {
-    if (!slotsObj || Object.keys(slotsObj).length === 0) {
-      return <div className="text-gray-500 text-center mt-4">No available slots for this week.</div>;
-    }
-    return (
-      <div className="w-full flex flex-col gap-6 mt-4">
-        {Object.entries(slotsObj).map(([date, slots]: [string, any]) => (
-          <div key={date} className="w-full">
-            <div className="font-semibold text-lg text-black mb-2">{new Date(date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}</div>
-            <div className="flex flex-wrap gap-2">
-              {slots.map((slot: any) => {
-                const time = new Date(slot.time);
-                return (
-                  <button
-                    key={slot.time}
-                    className="px-4 py-2 rounded-lg border border-gray-300 bg-white hover:bg-black hover:text-white transition-colors duration-150 text-sm font-medium shadow-sm"
-                    style={{ minWidth: 90 }}
-                    type="button"
-                    onClick={() => {
-                      setBookForm({
-                        ...bookForm,
-                        startTime: slot.time.slice(0, 16), // for datetime-local input (YYYY-MM-DDTHH:mm)
-                        user: username,
-                      });
-                    }}
-                  >
-                    {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
 
   // Extract slots from Cal.com API response structure
   function getSlotsFromEventData(data: any) {
@@ -152,10 +104,127 @@ function EventData({ setBookForm, bookForm }: { setBookForm: (f: any) => void, b
   }
 
   const slots = getSlotsFromEventData(eventData);
+  const availableDates = slots ? Object.keys(slots) : [];
+  const timesForSelectedDate = selectedDate && slots ? slots[selectedDate] : [];
+
+  // Calendar grid for the month
+  function renderCalendar() {
+    if (!availableDates.length) return null;
+    // Get the month and year from the first available date
+    const firstDate = new Date(availableDates[0]);
+    const year = firstDate.getFullYear();
+    const month = firstDate.getMonth();
+    // Find all days in the month
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    // Find the weekday of the 1st
+    const firstDayOfWeek = new Date(year, month, 1).getDay();
+    // Calendar grid
+    const weeks: (number | null)[][] = [];
+    let week: (number | null)[] = Array(firstDayOfWeek).fill(null);
+    function pad(n: number) { return n.toString().padStart(2, '0'); }
+    for (let day = 1; day <= daysInMonth; day++) {
+      week.push(day);
+      if (week.length === 7) {
+        weeks.push(week);
+        week = [];
+      }
+    }
+    if (week.length) {
+      while (week.length < 7) week.push(null);
+      weeks.push(week);
+    }
+    return (
+      <div className="flex flex-col items-center">
+        <div className="flex items-center mb-2">
+          <span className="text-lg font-semibold text-white mr-2">{firstDate.toLocaleString(undefined, { month: 'long', year: 'numeric' })}</span>
+        </div>
+        <div className="grid grid-cols-7 gap-1 mb-2">
+          {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map(d => (
+            <div key={d} className="text-xs text-gray-300 text-center">{d}</div>
+          ))}
+        </div>
+        {weeks.map((w, i) => (
+          <div key={i} className="grid grid-cols-7 gap-1 mb-1">
+            {w.map((day, j) => {
+              if (!day) return <div key={j} className="h-8" />;
+              const dateStr = `${year}-${pad(month + 1)}-${pad(day)}`;
+              const isAvailable = availableDates.includes(dateStr);
+              const isSelected = selectedDate === dateStr;
+              return (
+                <button
+                  key={j}
+                  className={`h-8 w-8 rounded-lg flex items-center justify-center text-sm font-medium transition-colors duration-100
+                    ${isAvailable ? (isSelected ? 'bg-white text-black font-bold border-2 border-green-400' : 'bg-gray-700 text-white hover:bg-gray-500') : 'bg-gray-900 text-gray-500 cursor-not-allowed'}`}
+                  disabled={!isAvailable}
+                  onClick={() => {
+                    if (isAvailable) setSelectedDate(dateStr);
+                  }}
+                >
+                  {day}
+                  {isAvailable && <span className="ml-1 text-green-400">•</span>}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Time selector for selected date
+  function renderTimes() {
+    if (!selectedDate || !timesForSelectedDate || !timesForSelectedDate.length) {
+      return <div className="text-gray-400 text-center mt-4">No available times for this date.</div>;
+    }
+    return (
+      <div className="flex flex-col gap-2 mt-2 w-full">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-lg font-semibold text-white">{new Date(selectedDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+          <div className="ml-auto flex gap-1 bg-gray-800 rounded-lg p-1">
+            <button
+              className={`px-2 py-1 rounded ${timeFormat === '12h' ? 'bg-black text-white' : 'text-gray-300'}`}
+              onClick={() => setTimeFormat('12h')}
+              type="button"
+            >12h</button>
+            <button
+              className={`px-2 py-1 rounded ${timeFormat === '24h' ? 'bg-black text-white' : 'text-gray-300'}`}
+              onClick={() => setTimeFormat('24h')}
+              type="button"
+            >24h</button>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 max-h-80 overflow-y-auto">
+          {timesForSelectedDate.map((slot: any) => {
+            const time = new Date(slot.time);
+            const timeStr = timeFormat === '12h'
+              ? time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
+              : time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+            return (
+              <button
+                key={slot.time}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-700 bg-gray-900 hover:bg-green-900 text-white text-base font-medium transition-colors duration-150"
+                type="button"
+                onClick={() => {
+                  setBookForm({
+                    ...bookForm,
+                    startTime: slot.time.slice(0, 16), // for datetime-local input (YYYY-MM-DDTHH:mm)
+                    user: username,
+                  });
+                }}
+              >
+                <span className="h-2 w-2 rounded-full bg-green-400 inline-block" />
+                {timeStr}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="mt-8 p-6 bg-white border border-gray-300 rounded-3xl shadow-xl max-w-2xl mx-auto flex flex-col items-center">
-      <h2 className="text-2xl text-left font-bold mb-4 text-black">Get slots to book</h2>
+    <div className="mt-8 p-6 bg-gray-900 border border-gray-700 rounded-3xl shadow-xl max-w-2xl mx-auto flex flex-col items-center">
+      <h2 className="text-2xl text-left font-bold mb-4 text-white">Get slots to book</h2>
       <form onSubmit={fetchEventData} className="flex flex-col gap-2 w-full max-w-md mb-4">
         <input
           type="text"
@@ -164,20 +233,6 @@ function EventData({ setBookForm, bookForm }: { setBookForm: (f: any) => void, b
           onChange={e => setUsername(e.target.value)}
           className="border rounded px-3 py-2 text-black"
           required
-        />
-        <input
-          type="datetime-local"
-          placeholder="Start Time (optional)"
-          value={startTime}
-          onChange={e => setStartTime(e.target.value)}
-          className="border rounded px-3 py-2 text-black"
-        />
-        <input
-          type="datetime-local"
-          placeholder="End Time (optional)"
-          value={endTime}
-          onChange={e => setEndTime(e.target.value)}
-          className="border rounded px-3 py-2 text-black"
         />
         <button
           type="submit"
@@ -192,7 +247,11 @@ function EventData({ setBookForm, bookForm }: { setBookForm: (f: any) => void, b
           Error: {error}
         </div>
       )}
-      {slots && renderSlots(slots)}
+      {/* Calendar and time selector UI */}
+      <div className="flex flex-row gap-8 w-full justify-center">
+        <div>{renderCalendar()}</div>
+        <div className="flex-1 min-w-[200px]">{renderTimes()}</div>
+      </div>
       {eventData && !slots && (
         <div className="text-gray-500 text-center mt-4">No available slots found.</div>
       )}
@@ -349,9 +408,9 @@ function MainContent() {
     name: "",
     email: "",
     startTime: "",
-    eventTypeSlug: "",
+    eventTypeSlug: "15min",
     user: "",
-    timeZone: "",
+    timeZone: "Asia/Kolkata",
   });
 
   useEffect(() => {
@@ -392,7 +451,7 @@ function MainContent() {
       <div className={`${isSearching ? "hidden" : "block"}`}></div>
       {/* Profile Card */}
       {profileData && (
-        <div className="p-6 bg-white border border-gray-300 rounded-3xl shadow-xl mt-8 max-w-2xl w-full flex flex-col items-center">
+        <div className="p-6 bg-white border border-gray-300 rounded-3xl shadow-xl mt-8 w-full flex flex-col items-center">
           <h2 className="text-2xl font-bold mb-2 text-black">{profileData.name}</h2>
           {profileData.image && (
             <img
