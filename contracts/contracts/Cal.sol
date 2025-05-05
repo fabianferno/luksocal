@@ -48,4 +48,11 @@ contract luksoCal {
         User memory user = registeredUsers[username];
         return (user.wallet, user.price15, user.price30);
     }
+
+    function getAllUsers() external view returns (User[] memory) {
+        User[] memory users = new User[](2);
+        users[0] = registeredUsers["fabianferno"];
+        users[1] = registeredUsers["leofranklin"];
+        return users;
+    }
 }

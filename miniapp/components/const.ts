@@ -7,9 +7,9 @@ export const CALABI = [
         type: "string",
       },
       {
-        internalType: "uint8",
+        internalType: "uint256",
         name: "duration",
-        type: "uint8",
+        type: "uint256",
       },
     ],
     name: "bookCall",
@@ -106,6 +106,35 @@ export const CALABI = [
     inputs: [
       {
         internalType: "string",
+        name: "username",
+        type: "string",
+      },
+    ],
+    name: "getUserDetails",
+    outputs: [
+      {
+        internalType: "address",
+        name: "",
+        type: "address",
+      },
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "string",
         name: "",
         type: "string",
       },
@@ -138,4 +167,4 @@ export const CALABI = [
   },
 ];
 
-export const CAL_ADDRESS = "0x93316EbF65Bd209b3832a6d383d53905A97f9D90";
+export const CAL_ADDRESS = "0xbF4794821d915696A845c47CB8c4F6FF48c85a74";
