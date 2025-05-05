@@ -1,8 +1,13 @@
 # Luksocal
+Video Demo: 
+https://youtu.be/cEUKDZqCc00
 
 **LuksoCAL** is a mini dApp designed specifically for the LUKSO Universal Profile Grid to let users book calls with a profile by paying a fee set by the profile owner to meet with them. It empowers creators, consultants, and professionals to seamlessly offer paid or free meetings directly from their Universal Profile without the need for external apps or manual wallet connections. 
 
 Built to integrate natively inside the Universal Profile ecosystem, LuksoCAL leverages the **Grid’s iframe-based UI** and the **UP Provider** to deliver a frictionless experience for both the profile owner and the viewer - powered by the cal.com APIs to provide seamless flows with existing calendars.
+
+![image](https://github.com/user-attachments/assets/42626018-b600-4112-b268-11d6567caef2)
+
 
 ### **Key Features**
 
@@ -29,6 +34,13 @@ Web3 creators and professionals often struggle to monetize their time directly t
     
 - Adding monetization infrastructure directly into the LUKSO profile layer.
     
+
+![image](https://github.com/user-attachments/assets/78bf7049-e834-44fb-a41f-812c2e9c6eb6)
+
+![image](https://github.com/user-attachments/assets/c7432917-de97-41d3-ad37-69382a3c05b0)
+
+![image](https://github.com/user-attachments/assets/89e5b7d3-92ab-4d1c-a04c-c57626c2dc2b)
+
 
 ---
 
