@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useAccount } from "wagmi";
-import { walletClient } from "@/components/client";
+import { client, walletClient } from "@/components/client";
 import { CALABI, CAL_ADDRESS } from "@/components/const";
 import { parseEther } from "viem";
 
@@ -31,14 +31,26 @@ export function RegisterButton({
 
     setIsLoading(true);
     try {
-      await walletClient?.writeContract({
+      const tx = await walletClient?.writeContract({
         account: address,
         address: CAL_ADDRESS,
         abi: CALABI,
         functionName: "registerUser",
         args: [username, parseEther(cost15), parseEther(cost30)],
       });
-      const code = `https://lukso.network/cal/${username}`;
+
+      console.log(tx);
+
+      const receipt = await client.waitForTransactionReceipt({
+        hash: tx!,
+      });
+
+      console.log(receipt);
+
+      // Base64 encode the username
+      const encodedUsername = Buffer.from(username).toString("base64");
+
+      const code = `${process.env.NEXT_PUBLIC_APP_URL}/?profileId=${encodedUsername}`;
       onSuccess(code);
     } catch (error) {
       console.error("Registration failed:", error);
