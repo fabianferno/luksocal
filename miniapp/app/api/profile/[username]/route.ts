@@ -9,12 +9,10 @@ import { JSDOM } from "jsdom";
  * @param params Contains route parameters
  * @returns Processed profile data from Cal.com as JSON
  */
-export async function GET(
-  request: Request,
-  { params }: { params: { username: string } }
-) {
+export async function GET(request: Request) {
   try {
-    const username = params.username;
+    const url = new URL(request.url);
+    const username = url.pathname.split("/").pop(); // brittle and error-prone
 
     // Fetch the profile page
     const response = await fetch(`https://cal.com/${username}`);
