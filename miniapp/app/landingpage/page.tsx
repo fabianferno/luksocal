@@ -1,19 +1,33 @@
 "use client";
 
 import React, { useState } from "react";
+import { CustomConnectButton } from "@/components/ConnectButton";
+import { walletClient } from "@/lib/client";
+import { calContractAddress, calContractABI } from "@/lib/const";
+import { useAccount } from "wagmi";
+import { parseEther } from "viem";
 
 export default function LandingPage() {
   const [form, setForm] = useState({ username: "", cost15: "", cost30: "" });
   const [showModal, setShowModal] = useState(false);
   const [generatedCode, setGeneratedCode] = useState("");
+  const { address } = useAccount();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const code = `<lukso-cal username="${form.username}" cost15="${form.cost15}" cost30="${form.cost30}" />`;
+
+    await walletClient?.writeContract({
+      address: calContractAddress,
+      abi: calContractABI,
+      functionName: "registerUser",
+      args: [form.username, parseEther(form.cost15), parseEther(form.cost30)],
+      account: address!,
+    });
+    const code = `https://lukso.cal.com/${form.username}`;
     setGeneratedCode(code);
     setShowModal(true);
   };
@@ -26,9 +40,7 @@ export default function LandingPage() {
     <div className="min-h-screen w-full bg-white font-serif relative flex flex-col">
       {/* Top Bar */}
       <header className="w-full flex items-center justify-between px-8 py-6 bg-transparent z-20">
-        <button className="px-6 py-2 rounded-lg bg-pink-600 hover:bg-pink-500 text-white font-bold text-base shadow transition-colors border border-pink-700">
-          Connect Wallet
-        </button>
+        <CustomConnectButton />
         <div className="flex items-center gap-2">
           <svg width="36" height="36" fill="none" viewBox="0 0 36 36">
             <rect
@@ -140,6 +152,7 @@ export default function LandingPage() {
             <button
               type="submit"
               className="w-full py-3 rounded-md bg-pink-600 hover:bg-pink-500 text-white font-bold text-lg shadow transition-colors font-sans border border-pink-700 mt-2"
+              disabled={!address}
             >
               Create your grid
             </button>
