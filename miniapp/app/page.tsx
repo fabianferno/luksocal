@@ -2,7 +2,6 @@
 
 import { UpProvider } from "@/components/upProvider";
 import { MainContent } from "@/components/MainContent";
-import { AppFooter } from "@/components/AppFooter";
 
 export default function Home() {
   return (

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import React from "react";
 import { createClientUPProvider } from "@lukso/up-provider";
-import { lukso } from "wagmi/chains";
+
 import { createWalletClient, createPublicClient, http, custom } from "viem";
 import { luksoTestnet } from "viem/chains";
 import { CAL_ADDRESS, CALABI } from "./const";
