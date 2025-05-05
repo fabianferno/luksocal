@@ -6,7 +6,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const { name, email, startTime, eventTypeSlug, user, timeZone } = body;
+    const { name, email, startTime, eventTypeSlug, user, timeZone, notes } =
+      body;
 
     if (!name || !email || !startTime || !eventTypeSlug || !user || !timeZone) {
       return NextResponse.json(
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
       responses: {
         name: name,
         email: email,
+        notes: notes,
         location: { value: "integrations:daily", optionValue: "" },
         guests: [],
       },

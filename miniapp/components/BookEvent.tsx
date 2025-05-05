@@ -22,6 +22,7 @@ export type BookingResponse = {
   responses: {
     name: string;
     email: string;
+
     guests: any[];
     location: {
       value: string;
@@ -195,7 +196,13 @@ export function BookEvent({
             .toISOString()
             .slice(0, 16) + ":00.000Z";
       }
-      const payload = { ...bookForm, startTime: startTimeUtc };
+      const payload = {
+        ...bookForm,
+        startTime: startTimeUtc,
+        notes:
+          "This is a paid booking from your LuksoCal Profile. Here is the Transaction :" +
+          `https://explorer.execution.testnet.lukso.network/tx/${tx}`,
+      };
       delete payload._slotUtc;
       const response = await fetch("/api/book", {
         method: "POST",
