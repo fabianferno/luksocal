@@ -43,4 +43,9 @@ contract luksoCal {
         user.wallet.transfer(msg.value);
         emit SlotBooked(username, msg.sender, duration, msg.value);
     }
+
+    function getUserDetails(string calldata username) external view returns (address, uint256, uint256) {
+        User memory user = registeredUsers[username];
+        return (user.wallet, user.price15, user.price30);
+    }
 }
