@@ -15,11 +15,9 @@ export async function GET(
 ) {
   try {
     const username = params.username;
-    console.log(`Fetching profile for username: ${username}`);
 
     // Fetch the profile page
     const response = await fetch(`https://cal.com/${username}`);
-    console.log(`Cal.com response status: ${response.status}`);
 
     if (!response.ok) {
       return NextResponse.json(
@@ -29,7 +27,6 @@ export async function GET(
     }
 
     const html = await response.text();
-    console.log(`Received HTML content length: ${html.length}`);
 
     try {
       const dom = new JSDOM(html);
@@ -38,8 +35,6 @@ export async function GET(
       // Extract __NEXT_DATA__ JSON
       const nextDataElement = document.getElementById("__NEXT_DATA__");
       if (!nextDataElement?.textContent) {
-        console.log("No __NEXT_DATA__ element found in the HTML");
-
         // Fallback to meta tags as a backup method
         const title = document.querySelector("title")?.textContent || "";
         const profileName = title.replace("| Cal.com", "").trim();
@@ -53,59 +48,45 @@ export async function GET(
 
         if (imageTag) {
           const ogImageUrl = imageTag.getAttribute("content") || "";
-          console.log("Original og:image URL:", ogImageUrl);
 
-          // Look specifically for the avatar URL pattern in meetingImage parameter
-          if (ogImageUrl.includes("meetingImage=")) {
-            try {
-              // Try to extract directly from the og:image URL first
-              const avatarId = extractAvatarId(ogImageUrl);
-              if (avatarId) {
-                imageUrl = `https://cal.com/api/avatar/${avatarId}.png`;
-                console.log("Extracted avatar ID directly:", avatarId);
-              } else {
-                // Extract the meetingImage parameter for further processing
-                const meetingImageMatch =
-                  ogImageUrl.match(/meetingImage=([^&]+)/);
-                if (meetingImageMatch && meetingImageMatch[1]) {
-                  // First level decode
-                  let decoded = decodeURIComponent(meetingImageMatch[1]);
-                  console.log("Decoded meetingImage:", decoded);
-
-                  // If it still contains encoded characters, decode again
-                  if (decoded.includes("%")) {
-                    decoded = decodeURIComponent(decoded);
-                    console.log("Second level decode:", decoded);
-                  }
-
-                  // Try to extract avatar ID from the decoded URL
-                  const avatarIdFromDecoded = extractAvatarId(decoded);
-                  if (avatarIdFromDecoded) {
-                    imageUrl = `https://cal.com/api/avatar/${avatarIdFromDecoded}.png`;
-                    console.log(
-                      "Extracted avatar ID from decoded URL:",
-                      avatarIdFromDecoded
-                    );
-                  } else if (decoded.startsWith("http")) {
-                    // Or just use the decoded URL if it's valid
-                    imageUrl = decoded;
-                    console.log("Using decoded URL:", imageUrl);
-                  }
-                }
-              }
-            } catch (e) {
-              console.error("Error decoding meetingImage from og:image:", e);
+          // Always attempt robust extraction
+          let meetingImageValue = "";
+          try {
+            const ogUrl = new URL(ogImageUrl, "https://cal.com");
+            const innerUrlEncoded = ogUrl.searchParams.get("url");
+            if (innerUrlEncoded) {
+              const innerUrl = decodeURIComponent(innerUrlEncoded);
+              // Now extract meetingImage from this inner URL
+              const innerParams = new URLSearchParams(innerUrl.split("?")[1]);
+              meetingImageValue = innerParams.get("meetingImage") || "";
             }
-          } else {
-            // If no meetingImage parameter, use the og:image directly
-            imageUrl = ogImageUrl;
+          } catch (e) {
+            console.error(
+              "Error extracting meetingImage from nested og:image URL:",
+              e
+            );
+          }
+          if (meetingImageValue) {
+            // First level decode
+            let decoded = decodeURIComponent(meetingImageValue);
+            // If it still contains encoded characters, decode again
+            if (decoded.includes("%")) {
+              decoded = decodeURIComponent(decoded);
+            }
+            // Try to extract avatar ID from the decoded URL
+            const avatarIdFromDecoded = extractAvatarId(decoded);
+            if (avatarIdFromDecoded) {
+              imageUrl = `https://cal.com/api/avatar/${avatarIdFromDecoded}.png`;
+            } else if (decoded.startsWith("http")) {
+              // Or just use the decoded URL if it's valid
+              imageUrl = decoded;
+            }
           }
         }
 
         // If we still have no image, use default avatar
         if (!imageUrl) {
           imageUrl = `https://cal.com/api/avatar/${username}`;
-          console.log("Using default avatar URL:", imageUrl);
         }
 
         return NextResponse.json({
@@ -117,12 +98,10 @@ export async function GET(
         });
       }
 
-      console.log("__NEXT_DATA__ element found, parsing JSON");
       const nextDataJson = JSON.parse(nextDataElement.textContent);
       const pageProps = nextDataJson?.props?.pageProps;
 
       if (!pageProps) {
-        console.log("No pageProps found in __NEXT_DATA__");
         return NextResponse.json(
           { error: `Missing pageProps data for ${username}` },
           { status: 404 }
@@ -130,7 +109,6 @@ export async function GET(
       }
 
       const profile = pageProps.profile;
-      console.log("Profile data:", profile ? "Found" : "Not found");
 
       if (!profile) {
         return NextResponse.json(
@@ -154,8 +132,8 @@ export async function GET(
               bio.push(el.textContent.trim());
             }
           }
-        } catch (e) {
-          console.error("Error parsing safeBio:", e);
+        } catch {
+          console.error("Error parsing safeBio:");
           // If parsing fails, try to get bio from meta description
           const bioTag = document.querySelector('meta[name="description"]');
           if (bioTag && bioTag.getAttribute("content")) {
@@ -188,49 +166,39 @@ export async function GET(
 
         if (imageTag) {
           const ogImageUrl = imageTag.getAttribute("content") || "";
-          console.log("Trying to extract from og:image URL:", ogImageUrl);
 
-          // Try to extract directly from the og:image URL first
-          const avatarId = extractAvatarId(ogImageUrl);
-          if (avatarId) {
-            data.image = `https://cal.com/api/avatar/${avatarId}.png`;
-            console.log("Extracted avatar ID directly:", avatarId);
-          } else if (ogImageUrl.includes("meetingImage=")) {
-            try {
-              // Extract the meetingImage parameter for further processing
-              const meetingImageMatch =
-                ogImageUrl.match(/meetingImage=([^&]+)/);
-              if (meetingImageMatch && meetingImageMatch[1]) {
-                // First level decode
-                let decoded = decodeURIComponent(meetingImageMatch[1]);
-                console.log("Decoded meetingImage:", decoded);
-
-                // If it still contains encoded characters, decode again
-                if (decoded.includes("%")) {
-                  decoded = decodeURIComponent(decoded);
-                  console.log("Second level decode:", decoded);
-                }
-
-                // Try to extract avatar ID from the decoded URL
-                const avatarIdFromDecoded = extractAvatarId(decoded);
-                if (avatarIdFromDecoded) {
-                  data.image = `https://cal.com/api/avatar/${avatarIdFromDecoded}.png`;
-                  console.log(
-                    "Extracted avatar ID from decoded URL:",
-                    avatarIdFromDecoded
-                  );
-                } else if (decoded.startsWith("http")) {
-                  // Or just use the decoded URL if it's valid
-                  data.image = decoded;
-                  console.log("Using decoded URL:", data.image);
-                }
-              }
-            } catch (e) {
-              console.error("Error decoding meetingImage from og:image:", e);
+          // Always attempt robust extraction
+          let meetingImageValue = "";
+          try {
+            const ogUrl = new URL(ogImageUrl, "https://cal.com");
+            const innerUrlEncoded = ogUrl.searchParams.get("url");
+            if (innerUrlEncoded) {
+              const innerUrl = decodeURIComponent(innerUrlEncoded);
+              // Now extract meetingImage from this inner URL
+              const innerParams = new URLSearchParams(innerUrl.split("?")[1]);
+              meetingImageValue = innerParams.get("meetingImage") || "";
             }
-          } else {
-            // If no meetingImage parameter, use the og:image directly
-            data.image = ogImageUrl;
+          } catch (e) {
+            console.error(
+              "Error extracting meetingImage from nested og:image URL:",
+              e
+            );
+          }
+          if (meetingImageValue) {
+            // First level decode
+            let decoded = decodeURIComponent(meetingImageValue);
+            // If it still contains encoded characters, decode again
+            if (decoded.includes("%")) {
+              decoded = decodeURIComponent(decoded);
+            }
+            // Try to extract avatar ID from the decoded URL
+            const avatarIdFromDecoded = extractAvatarId(decoded);
+            if (avatarIdFromDecoded) {
+              data.image = `https://cal.com/api/avatar/${avatarIdFromDecoded}.png`;
+            } else if (decoded.startsWith("http")) {
+              // Or just use the decoded URL if it's valid
+              data.image = decoded;
+            }
           }
         }
       }
@@ -238,13 +206,10 @@ export async function GET(
       // If we still have no image, use default avatar
       if (!data.image) {
         data.image = `https://cal.com/api/avatar/${username}`;
-        console.log("Using default avatar URL:", data.image);
       }
 
-      console.log("Final data being returned:", data);
       return NextResponse.json(data);
     } catch (error) {
-      console.error("Error parsing HTML:", error);
       return NextResponse.json(
         {
           error: "Failed to parse HTML response",
@@ -255,7 +220,6 @@ export async function GET(
       );
     }
   } catch (error) {
-    console.error("Top-level error:", error);
     return NextResponse.json(
       {
         error: "Failed to process Cal.com profile",
@@ -292,8 +256,8 @@ function extractAvatarId(url: string): string | null {
     }
 
     return null;
-  } catch (e) {
-    console.error("Error extracting avatar ID:", e);
+  } catch {
+    console.error("Error extracting avatar ID:");
     return null;
   }
 }
