@@ -235,51 +235,58 @@ export function BookEvent({
   }, [accounts]);
 
   return (
-    <div className="mt-8 p-6 bg-white border border-gray-300 rounded-3xl shadow-xl max-w-2xl mx-auto flex flex-col items-center">
+    <div className="mt-8 p-10 bg-white border border-gray-300 rounded-3xl shadow-xl max-w-4xl w-full mx-auto flex flex-col items-center">
       {!bookingResult ? (
-        <form
-          onSubmit={bookEvent}
-          className="flex flex-col gap-2 w-full max-w-md mb-4"
-        >
-          <input
-            type="text"
-            name="name"
-            placeholder="Your Name"
-            value={bookForm.name}
-            onChange={handleChange}
-            className="border rounded px-3 py-2 text-black"
-            required
-          />
-          <input
-            type="email"
-            name="email"
-            placeholder="Your Email"
-            value={bookForm.email}
-            onChange={handleChange}
-            className="border rounded px-3 py-2 text-black"
-            required
-          />
-          <input
-            type="text"
-            name="user"
-            placeholder="Cal.com Username"
-            value={bookForm.user}
-            onChange={handleChange}
-            className="border rounded px-3 py-2 text-black"
-            required
-          />
-          <input
-            type="text"
-            name="eventTypeSlug"
-            placeholder="Event Type Slug (e.g. 15min)"
-            value={bookForm.eventTypeSlug}
-            onChange={handleChange}
-            className="border rounded px-3 py-2 text-black"
-            required
-          />
-          {/* Show selected time as plain text, not editable */}
-          <div className="flex items-center gap-2">
-            <div className="flex-1 border rounded px-3 py-2 bg-gray-100 text-black cursor-not-allowed">
+        <form onSubmit={bookEvent} className="w-full mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <input
+              type="text"
+              name="name"
+              placeholder="Your Name"
+              value={bookForm.name}
+              onChange={handleChange}
+              className="border rounded px-5 py-4 text-black text-lg w-full"
+              required
+            />
+            <input
+              type="email"
+              name="email"
+              placeholder="Your Email"
+              value={bookForm.email}
+              onChange={handleChange}
+              className="border rounded px-5 py-4 text-black text-lg w-full"
+              required
+            />
+            <input
+              type="text"
+              name="user"
+              placeholder="Cal.com Username"
+              value={bookForm.user}
+              onChange={handleChange}
+              className="border rounded px-5 py-4 text-black text-lg w-full"
+              required
+            />
+            <input
+              type="text"
+              name="eventTypeSlug"
+              placeholder="Event Type Slug (e.g. 15min)"
+              value={bookForm.eventTypeSlug}
+              onChange={handleChange}
+              className="border rounded px-5 py-4 text-black text-lg w-full"
+              required
+            />
+            <input
+              type="text"
+              name="timeZone"
+              placeholder="Time Zone (e.g. Europe/Amsterdam)"
+              value={bookForm.timeZone}
+              onChange={handleChange}
+              className="border rounded px-5 py-4 text-black text-lg w-full md:col-span-2"
+              required
+            />
+          </div>
+          <div className="flex flex-col md:flex-row gap-4 items-center mb-6">
+            <div className="flex-1 border rounded px-5 py-4 bg-gray-100 text-black cursor-not-allowed text-lg w-full">
               <span className="font-medium">Selected Time:</span>{" "}
               {bookForm.startTime ? (
                 formatDateTime(bookForm.startTime)
@@ -289,7 +296,7 @@ export function BookEvent({
             </div>
             <button
               type="button"
-              className="ml-2 px-3 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-medium border border-gray-300"
+              className="px-5 py-4 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 text-lg font-medium border border-gray-300 w-full md:w-auto"
               onClick={scrollToSlots}
             >
               Change time
@@ -297,20 +304,11 @@ export function BookEvent({
           </div>
           {/* Hidden input to keep startTime in form submission */}
           <input type="hidden" name="startTime" value={bookForm.startTime} />
-          <input
-            type="text"
-            name="timeZone"
-            placeholder="Time Zone (e.g. Europe/Amsterdam)"
-            value={bookForm.timeZone}
-            onChange={handleChange}
-            className="border rounded px-3 py-2 text-black"
-            required
-          />
-          <div className="flex flex-row gap-2 mt-2">
+          <div className="flex flex-row gap-4 mt-4 justify-end">
             {onBack && (
               <button
                 type="button"
-                className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-6 rounded-full border border-gray-400"
+                className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-3 px-8 rounded-full border border-gray-400 text-lg"
                 onClick={onBack}
               >
                 Back
@@ -318,7 +316,7 @@ export function BookEvent({
             )}
             <button
               type="submit"
-              className="bg-black hover:bg-gray-800 text-white font-bold py-3 px-8 rounded-full text-lg shadow-md transition-all duration-150 disabled:opacity-60"
+              className="bg-black hover:bg-gray-800 text-white font-bold py-3 px-10 rounded-full text-lg shadow-md transition-all duration-150 disabled:opacity-60"
               disabled={loading || !bookForm.startTime}
             >
               {loading ? "Booking..." : "Book Event"}

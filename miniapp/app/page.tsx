@@ -9,7 +9,6 @@ export default function Home() {
     <UpProvider>
       <div className="min-h-screen flex flex-col items-center">
         <MainContent />
-        <AppFooter />
       </div>
     </UpProvider>
   );
